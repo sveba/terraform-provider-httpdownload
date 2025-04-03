@@ -1,0 +1,64 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  HOSTNAME: github.com
+  NAMESPACE: sveba
+  NAME: httpdownload
+  BINARY: terraform-provider-{{.NAME}}
+  VERSION: 1.0.0
+
+tasks:
+  default:
+    cmds:
+      - task: install
+    silent: true
+  
+  build:
+    deps:
+      - test
+      - fmt
+      - lint
+    desc: Build the provider
+    cmds:
+      - go build -o {{.BINARY}}
+
+  install:
+    deps:
+      - build
+    desc: Install the provider
+    cmds:
+      - mkdir -p ~/.terraform.d/plugins/{{.HOSTNAME}}/{{.NAMESPACE}}/{{.NAME}}/{{.VERSION}}/{{OS}}
+      - mv {{.BINARY}} ~/.terraform.d/plugins/{{.HOSTNAME}}/{{.NAMESPACE}}/{{.NAME}}/{{.VERSION}}/{{OS}}
+
+  test:
+    desc: Run the tests
+    cmds:
+      - go test -v -cover -timeout=120s -parallel=10 ./...
+
+  testaccept:
+    desc: Run the acceptance tests
+    cmds:
+      - TF_ACC=1 go test -v -cover -timeout 120m ./...
+
+  lint:
+    desc: Run the linter
+    cmds:
+      - golangci-lint run --timeout 5m
+  
+  fmt:
+    desc: Format the code
+    cmds:
+      - gofmt -w -s -e .
+      - go mod tidy
+
+  doc:
+    desc: Generate the documentation
+    cmds:
+      - go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate \
+        --provider-name {{.NAME}} \
+        --output-file docs/index.md \
+        --overwrite \
+        --header-file docs/header.md \
+        --footer-file docs/footer.md
